@@ -1,0 +1,295 @@
+ColorOS 便签
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>蛋仔逃生（最终完美版）</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #1a1a1a; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
+ 
+        #game-container {
+            position: relative; width: 900px; height: 600px;
+            background: url("./images/bg.png") no-repeat center;
+            background-size: cover; border: 6px solid #ff6b00; border-radius: 10px;
+        }
+        /* 氛围元素 */
+        .pumpkin {
+            position: absolute; width: 40px; height: 60px;
+            background: url("./images/pumpkin.png") no-repeat; background-size: cover;
+            z-index: 4; animation: flash 2s infinite alternate;
+        }
+        #pumpkin1 { top: 80px; left: 100px; }
+        #pumpkin2 { top: 120px; left: 750px; }
+        @keyframes flash {
+            0% { filter: brightness(0.8) drop-shadow(0 0 10px #ffd700); }
+            100% { filter: brightness(1.5) drop-shadow(0 0 20px #ffb800); }
+        }
+        .bat {
+            position: absolute; width: 30px; height: 20px;
+            background: url("./images/bat.png") no-repeat; background-size: cover;
+            z-index: 4; animation: fly 2s infinite linear;
+        }
+        #bat1 { top: 150px; left: -30px; }
+        #bat2 { top: 250px; left: 930px; transform: scaleX(-1); animation-delay: 0.8s; }
+        #bat3 { top: 400px; left: -30px; animation-delay: 1.5s; }
+        @keyframes fly { 0% { left: -30px; } 100% { left: 930px; } }
+        #bat2 { animation-name: flyReverse; }
+        @keyframes flyReverse { 0% { left: 930px; } 100% { left: -30px; } }
+        /* 蛋仔（圆形+缩小） */
+        #egg {
+            position: absolute; width: 38px; height: 38px;
+            background: url("./images/egg.png") no-repeat; background-size: cover;
+            bottom: 30px; left: 50px; z-index: 10;
+            border-radius: 50%; box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+            /* 确保定位基于game-container */
+            transform: translate(0, 0);
+        }
+        /* 屠夫 */
+        #saw-butcher {
+            position: absolute; width: 30px; height: 40px;
+            background: url("./images/butcher.png") no-repeat; background-size: cover;
+            left: 450px; top: 300px; z-index: 5;
+            transform: translate(0, 0);
+        }
+        #saw-blade {
+            position: absolute; width: 18px; height: 18px;
+            background: url("./images/blade.png") no-repeat; background-size: cover;
+            top: 10px; right: -5px; animation: rotate 0.08s infinite linear;
+        }
+        @keyframes rotate { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* 逃生门 */
+        #exit-door {
+            position: absolute; width: 48px; height: 72px;
+            background: url("./images/door.png") no-repeat; background-size: cover;
+            right: 66px; top: 264px; z-index: 3;
+        }
+        /* 操作按键 */
+        #controls {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: grid; grid-template-columns: repeat(3, 70px); gap: 10px; z-index: 20;
+        }
+        .btn {
+            width: 70px; height: 70px; background: rgba(0,0,0,0.7);
+            border: 3px solid #ff6b00; border-radius: 50%; color: #ffd700;
+            font-size: 24px; cursor: pointer; display: flex; justify-content: center; align-items: center;
+            -webkit-tap-highlight-color: transparent; /* 移动端去除点击高亮 */
+        }
+        .btn:active {
+            background: rgba(255, 107, 0, 0.5); /* 点击反馈 */
+        }
+        #up { grid-column: 2 / 3; }
+        #left { grid-column: 1 / 2; grid-row: 2 / 3; }
+        #down { grid-column: 2 / 3; grid-row: 2 / 3; }
+        #right { grid-column: 3 / 4; grid-row: 2 / 3; }
+        /* 再来一次弹窗（统一样式） */
+        #restart-popup {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 350px; height: 200px; background: rgba(0,0,0,0.9);
+            border: 4px solid #ff6b00; border-radius: 15px; z-index: 100;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            color: #ffd700; font-size: 28px; text-align: center; padding: 20px;
+            box-shadow: 0 0 20px rgba(255, 107, 0, 0.8);
+        }
+        #restart-btn {
+            margin-top: 25px; padding: 12px 40px;
+            background: #ff6b00; border: 2px solid #ffd700;
+            border-radius: 8px; color: #fff; font-size: 22px; cursor: pointer;
+            transition: all 0.2s;
+        }
+        #restart-btn:hover {
+            background: #ff4500; transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <!-- 氛围元素 -->
+        <div class="pumpkin" id="pumpkin1"></div>
+        <div class="pumpkin" id="pumpkin2"></div>
+        <div class="bat" id="bat1"></div>
+        <div class="bat" id="bat2"></div>
+        <div class="bat" id="bat3"></div>
+ 
+        <!-- 核心游戏元素 -->
+        <div id="egg"></div>
+        <div id="saw-butcher"><div id="saw-blade"></div></div>
+        <div id="exit-door"></div>
+ 
+        <!-- 操作按键 -->
+        <div id="controls">
+            <button class="btn" id="up">↑</button>
+            <button class="btn" id="left">←</button>
+            <button class="btn" id="down">↓</button>
+            <button class="btn" id="right">→</button>
+        </div>
+ 
+        <!-- 再来一次弹窗 -->
+        <div id="restart-popup">
+            <div id="popup-text">再来一次？</div>
+            <button id="restart-btn">再来一局</button>
+        </div>
+    </div>
+    <script>
+        // 等待页面完全加载（替代DOMContentLoaded，兼容性更好）
+        window.onload = function() {
+            // 强制获取DOM元素（确保元素已渲染）
+            const egg = document.getElementById("egg");
+            const butcher = document.getElementById("saw-butcher");
+            const exit = document.getElementById("exit-door");
+            const restartPopup = document.getElementById("restart-popup");
+            const popupText = document.getElementById("popup-text");
+            const restartBtn = document.getElementById("restart-btn");
+            const upBtn = document.getElementById("up");
+            const downBtn = document.getElementById("down");
+            const leftBtn = document.getElementById("left");
+            const rightBtn = document.getElementById("right");
+            // 验证元素是否获取成功（控制台打印，方便排查）
+            console.log("元素获取状态：", { egg, butcher, exit, restartBtn });
+            if (!egg || !butcher) {
+                alert("DOM元素获取失败，请检查ID是否正确！");
+                return;
+            }
+            // 游戏状态（全局变量，避免作用域问题）
+            let gameState = {
+                eggX: 50, 
+                eggY: 520,
+                butcherX: 450, 
+                butcherY: 300,
+                eggSpeed: 15, // 调大速度，视觉更明显
+                butcherSpeed: 0.8, // 调大屠夫速度，游戏更有挑战性
+                lives: 3,
+                playing: true,
+                gameTimer: null // 存储定时器，方便重启
+            };
+            // 初始化元素位置（强制赋值，避免样式覆盖）
+ egg.style.left = gameState.eggX + "px";
+ egg.style.top = gameState.eggY + "px";
+ butcher.style.left = gameState.butcherX + "px";
+ butcher.style.top = gameState.butcherY + "px";
+            // 碰撞检测（优化边界计算）
+            const isCollide = (el1, el2) => {
+                const r1 = el1.getBoundingClientRect();
+                const r2 = el2.getBoundingClientRect();
+                // 缩小碰撞范围，避免误判
+                const padding = 5;
+                return !(
+ r1.top + padding > r2.bottom - padding ||
+                    r1.bottom - padding < r2.top + padding ||
+                    r1.left + padding > r2.right - padding ||
+                    r1.right - padding < r2.left + padding
+                );
+            };
+            // 蛋仔移动（独立函数，确保逻辑纯净）
+            const moveEgg = dir => {
+                if (!gameState.playing) return;
+                let { eggX, eggY, eggSpeed } = gameState;
+                switch(dir) {
+                    case "left": eggX -= eggSpeed; break;
+                    case "right": eggX += eggSpeed; break;
+                    case "up": eggY -= eggSpeed; break;
+                    case "down": eggY += eggSpeed; break;
+                }
+                // 边界限制（基于game-container的尺寸）
+                gameState.eggX = Math.max(0, Math.min(862, eggX));
+                gameState.eggY = Math.max(0, Math.min(562, eggY));
+ 
+                // 更新蛋仔位置
+ egg.style.left = gameState.eggX + "px";
+ egg.style.top = gameState.eggY + "px";
+            };
+            // 屠夫移动（优化追蛋逻辑）
+            const moveButcher = () => {
+                if (!gameState.playing) return;
+                let { butcherX, butcherY, eggX, eggY, butcherSpeed } = gameState;
+                // 计算方向向量
+                const dx = eggX - butcherX;
+                const dy = eggY - butcherY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                // 仅当距离大于阈值时移动，避免抖动
+                if (distance > 10) {
+                    butcherX += (dx / distance) * butcherSpeed;
+                    butcherY += (dy / distance) * butcherSpeed;
+                }
+                // 边界限制
+                gameState.butcherX = Math.max(30, Math.min(870, butcherX));
+                gameState.butcherY = Math.max(30, Math.min(560, butcherY));
+ 
+                // 更新屠夫位置
+ butcher.style.left = gameState.butcherX + "px";
+ butcher.style.top = gameState.butcherY + "px";
+            };
+            // 游戏检测（碰撞+胜负判断）
+            const checkGame = () => {
+                if (isCollide(egg, butcher)) {
+                    gameState.lives--;
+                    if (gameState.lives <= 0) {
+                        endGame(false);
+                    }
+                }
+                if (isCollide(egg, exit)) {
+                    endGame(true);
+                }
+            };
+            // 游戏结束
+            const endGame = win => {
+                gameState.playing = false;
+                clearInterval(gameState.gameTimer); // 停止定时器
+                popupText.textContent = win ? "🎉 逃生成功！再来一局？" : "💀 被抓住啦！再来一次？";
+ restartPopup.style.display = "flex";
+            };
+            // 重启游戏
+            const restartGame = () => {
+                // 重置状态
+                gameState.eggX = 50;
+                gameState.eggY = 520;
+                gameState.butcherX = 450;
+                gameState.butcherY = 300;
+                gameState.lives = 3;
+                gameState.playing = true;
+                // 重置位置
+ egg.style.left = gameState.eggX + "px";
+ egg.style.top = gameState.eggY + "px";
+ butcher.style.left = gameState.butcherX + "px";
+ butcher.style.top = gameState.butcherY + "px";
+                // 隐藏弹窗并重启定时器
+ restartPopup.style.display = "none";
+                startGameLoop();
+            };
+            // 启动游戏循环
+            const startGameLoop = () => {
+                gameState.gameTimer = setInterval(() => {
+                    moveButcher();
+                    checkGame();
+                }, 16); // 约60帧，更流畅
+            };
+            // 绑定所有事件（直接绑定，避免事件委托失效）
+            const bindEvents = () => {
+                // 按钮控制
+                upBtn.addEventListener("click", () => moveEgg("up"));
+                downBtn.addEventListener("click", () => moveEgg("down"));
+                leftBtn.addEventListener("click", () => moveEgg("left"));
+                rightBtn.addEventListener("click", () => moveEgg("right"));
+                // 键盘控制
+                document.addEventListener("keydown", (e) => {
+                    e.preventDefault(); // 阻止页面滚动
+                    switch(e.key) {
+                        case "ArrowLeft": moveEgg("left"); break;
+                        case "ArrowRight": moveEgg("right"); break;
+                        case "ArrowUp": moveEgg("up"); break;
+                        case "ArrowDown": moveEgg("down"); break;
+                    }
+                });
+                // 重启按钮
+                restartBtn.addEventListener("click", restartGame);
+            };
+            // 初始化游戏
+            bindEvents();
+            startGameLoop();
+        };
+    </script>
+</body>
+</html>
